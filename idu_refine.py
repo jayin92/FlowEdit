@@ -15,6 +15,7 @@ from tqdm import tqdm
 
 from typing import List
 from PIL.Image import Image as PILImage
+from contextlib import contextmanager
 
 
 default_src_prompt = "Satellite image of an urban area with modern and older buildings, roads, green spaces, and a unique white angular structure. Some areas appear distorted, with blurring and warping artifacts near edges and trees."
@@ -58,8 +59,19 @@ class FlowEditRefineIDU:
         print(f"Initialized FlowEdit with {model_type} model.")
 
     def __del__(self):
-        del self.pipe
-        torch.cuda.empty_cache()
+        if self.pipe is not None:
+            try:
+                self.pipe.to("cpu")  # Move to CPU before deleting
+            except Exception as e:
+                print(f"Error during model cleanup: {e}")
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    @contextmanager
+    def model_loading_context(self):
+        """Context manager for efficient model loading."""
+        with torch.inference_mode():  # Use inference mode
+            yield
     
     def run_single_image(self, img, src_prompt, tar_prompt, T_steps, n_avg, src_guidance_scale, tar_guidance_scale, n_min, n_max):
         img = numpy_to_pil(img)
@@ -73,36 +85,16 @@ class FlowEditRefineIDU:
         # send to cuda
         x0_src = x0_src.to(self.device)
 
-        if self.model_type == 'SD3':
-            x0_tar = FlowEditSD3(self.pipe,
-                                                    self.scheduler,
-                                                    x0_src,
-                                                    src_prompt,
-                                                    tar_prompt,
-                                                    negative_prompt,
-                                                    T_steps,
-                                                    n_avg,
-                                                    src_guidance_scale,
-                                                    tar_guidance_scale,
-                                                    n_min,
-                                                    n_max,)
-            
-        elif self.model_type == 'FLUX':
-            x0_tar = FlowEditFLUX(self.pipe,
-                                                    self.scheduler,
-                                                    x0_src,
-                                                    src_prompt,
-                                                    tar_prompt,
-                                                    negative_prompt,
-                                                    T_steps,
-                                                    n_avg,
-                                                    src_guidance_scale,
-                                                    tar_guidance_scale,
-                                                    n_min,
-                                                    n_max,)
-        else:
+        flow_edit_func = FlowEditSD3 if self.model_type == 'SD3' else FlowEditFLUX
+        if flow_edit_func is None: # Redundant, but good for clarity/future-proofing
             raise NotImplementedError(f"Sampler type {self.model_type} not implemented")
-    
+
+        # Perform FlowEdit
+        x0_tar = flow_edit_func(self.pipe, self.scheduler, x0_src, src_prompt, tar_prompt,
+                                "", T_steps, n_avg, src_guidance_scale, tar_guidance_scale,
+                                n_min, n_max)
+
+        # Decode the edited latent representation back to an image
         x0_tar_denorm = (x0_tar / self.pipe.vae.config.scaling_factor) + self.pipe.vae.config.shift_factor
         with torch.autocast("cuda"), torch.inference_mode():
             image_tar = self.pipe.vae.decode(x0_tar_denorm, return_dict=False)[0]
