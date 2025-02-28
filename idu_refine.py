@@ -109,8 +109,11 @@ class FlowEditRefineIDU:
         assert tar_prompt is not None, "Should provide target prompt"
         refine_imgs = []
         for idx, img in enumerate(tqdm(imgs, desc=f"Refining images using FlowEdit with (min, max, avg) = ({n_min}, {n_max}, {n_avg})")):
-            refine_img = self.run_single_image(img, src_prompt, tar_prompt, T_steps, n_avg, src_guidance_scale, tar_guidance_scale, n_min, n_max)
-            refine_img.save(os.path.join(self.save_path, '{0:05d}'.format(idx) + ".png"))
+            if os.path.exists(os.path.join(self.save_path, '{0:05d}'.format(idx) + ".png")):
+                refine_img = Image.open(os.path.join(self.save_path, '{0:05d}'.format(idx) + ".png"))
+            else:
+                refine_img = self.run_single_image(img, src_prompt, tar_prompt, T_steps, n_avg, src_guidance_scale, tar_guidance_scale, n_min, n_max)
+                refine_img.save(os.path.join(self.save_path, '{0:05d}'.format(idx) + ".png"))
             refine_imgs.append(refine_img)
 
         return refine_imgs
