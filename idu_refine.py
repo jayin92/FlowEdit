@@ -76,7 +76,6 @@ class FlowEditRefineIDU:
     
     def run_single_image(self, img, src_prompt, tar_prompt, T_steps, n_avg, src_guidance_scale, tar_guidance_scale, n_min, n_max):
         img = numpy_to_pil(img)
-        # img = Image.open("/project/jayinnn/mip-splatting/satellite_wild_op_loss_iterative/JAX_068_op_10_depth_0_sz_20_d20000_flux_v1/idu/e70_r300/render/00000.png")
         img = img.crop((0, 0, img.width - img.width % 16, img.height - img.height % 16))
         image_src = self.pipe.image_processor.preprocess(img)
         image_src = image_src.to(self.device).half()
@@ -105,12 +104,23 @@ class FlowEditRefineIDU:
 
     
     @torch.no_grad()
-    def run(self, imgs: List[PILImage], src_prompt=default_src_prompt, tar_prompt=default_tar_prompt, T_steps=28, n_avg=1, src_guidance_scale=1.5, tar_guidance_scale=5.5, n_min=0, n_max=15):
+    def run(self, imgs: List[PILImage], src_prompt=default_src_prompt, tar_prompt=default_tar_prompt, T_steps=28, n_avg=1, src_guidance_scale=1.5, tar_guidance_scale=5.5, n_min=0, n_max=15, n_max_end=None):
         assert src_prompt is not None, "Should provide source prompt"
         assert tar_prompt is not None, "Should provide target prompt"
+
+        # If n_max_end is provided, we sample n_max per image from U(n_min, n_max_end)
+        use_sampling = n_max_end is not None and n_max_end != -1
+
         refine_imgs = []
-        for idx, img in enumerate(tqdm(imgs, desc=f"Refining images using FlowEdit with (min, max, avg) = ({n_min}, {n_max}, {n_avg})")):
-            refine_img = self.run_single_image(img, src_prompt, tar_prompt, T_steps, n_avg, src_guidance_scale, tar_guidance_scale, n_min, n_max)
+        desc = f"Refining images using FlowEdit with (min, max, avg) = ({n_min}, {n_max}, {n_avg})"
+        if use_sampling:
+            desc = f"Refining images using FlowEdit with (min, max_range, avg) = ({n_min}, {n_min}-{n_max_end}, {n_avg})"
+
+        for idx, img in enumerate(tqdm(imgs, desc=desc)):
+            # Sample n_max per image if n_max_end is provided
+            current_n_max = random.randint(n_min, n_max_end) if use_sampling else n_max
+            print(f"Processing image {idx+1}/{len(imgs)} with n_max = {current_n_max}")
+            refine_img = self.run_single_image(img, src_prompt, tar_prompt, T_steps, n_avg, src_guidance_scale, tar_guidance_scale, n_min, current_n_max)
             refine_img.save(os.path.join(self.save_path, '{0:05d}'.format(idx) + ".png"))
             refine_imgs.append(refine_img)
 
