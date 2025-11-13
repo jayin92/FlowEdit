@@ -18,8 +18,8 @@ from PIL.Image import Image as PILImage
 from contextlib import contextmanager
 
 
-default_src_prompt = "Satellite image of an urban area with modern and older buildings, roads, green spaces, and a unique white angular structure. Some areas appear distorted, with blurring and warping artifacts near edges and trees."
-default_tar_prompt = "Clear satellite image of an urban area with sharp buildings, smooth edges, and no distortions. Roads, green spaces, and the white angular structure are crisp, with natural lighting and well-defined textures."
+default_src_prompt = "Satellite image of an urban area with modern and older buildings, roads, green spaces. Some areas appear distorted, with blurring and warping artifacts."
+default_tar_prompt = "Clear satellite image of an urban area with sharp buildings, smooth edges, natural lighting, and well-defined textures."
 negative_prompt = ""
 
 def numpy_to_pil(numpy_img):
