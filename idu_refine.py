@@ -22,6 +22,12 @@ default_src_prompt = "Satellite image of an urban area with modern and older bui
 default_tar_prompt = "Clear satellite image of an urban area with sharp buildings, smooth edges, natural lighting, and well-defined textures."
 negative_prompt = ""
 
+
+# TODO: remember to change back prompts, this is for R1 rebuttal experiments (generic prompts)
+# default_src_prompt = "distorted, blurring, warping artifacts."
+# default_tar_prompt = "clear, sharp, smooth edges, natural lighting, well-defined textures."
+
+
 def numpy_to_pil(numpy_img):
     # Ensure the array is uint8
     if numpy_img.dtype != np.uint8:
